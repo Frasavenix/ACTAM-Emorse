@@ -6,54 +6,62 @@ const dot_duration = 0.05;
 const line_duration = dot_duration * 3;
 const word_silence_duration = dot_duration * 7;
 
+stop = true;
+loop = false;
+
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
 // Array che contiene il codice Morse per ogni lettera dell'alfabeto in ordine
 const morseCodes = [
-    ".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", 
-    ".---", "-.-", ".-..", "--", "-.", "---", ".--.", "--.-", ".-.", 
-    "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."
+  ".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..",
+  ".---", "-.-", ".-..", "--", "-.", "---", ".--.", "--.-", ".-.",
+  "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."
 ];
 
 // Array per numeri da 0 a 9
 const morseNumbers = [
-    "-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."
+  "-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."
 ];
 
 // Array per simboli speciali comuni
 const morseSpecialChars = {
-    ".": ".-.-.-", 
-    ",": "--..--", 
-    "?": "..--..", 
-    "!": "-.-.--", 
-    "/": "-..-.", 
-    "(": "-.--.", 
-    ")": "-.--.-", 
-    "&": ".-...", 
-    ":": "---...", 
-    ";": "-.-.-.", 
-    "=": "-...-", 
-    "+": ".-.-.", 
-    "-": "-....-", 
-    "_": "..--.-", 
-    "\"": ".-..-.", 
-    "@": ".--.-."
+  ".": ".-.-.-",
+  ",": "--..--",
+  "?": "..--..",
+  "!": "-.-.--",
+  "/": "-..-.",
+  "(": "-.--.",
+  ")": "-.--.-",
+  "&": ".-...",
+  ":": "---...",
+  ";": "-.-.-.",
+  "=": "-...-",
+  "+": ".-.-.",
+  "-": "-....-",
+  "_": "..--.-",
+  "\"": ".-..-.",
+  "@": ".--.-."
 };
 
 // Ciclo per aggiungere le lettere dalla 'a' alla 'z' con il corrispondente codice Morse
 for (let i = 97; i <= 122; i++) {
-    letter = String.fromCharCode(i); // Converte il codice ASCII in lettera
-    morseCode = morseCodes[i - 97]; // Ottiene il codice Morse dall'array
-    morseMap.set(letter, morseCode); // Aggiunge la lettera e il codice Morse alla mappa
+  letter = String.fromCharCode(i); // Converte il codice ASCII in lettera
+  morseCode = morseCodes[i - 97]; // Ottiene il codice Morse dall'array
+  morseMap.set(letter, morseCode); // Aggiunge la lettera e il codice Morse alla mappa
 }
 
 // Ciclo per aggiungere i numeri da '0' a '9'
 for (let i = 0; i <= 9; i++) {
-    morseMap.set(i.toString(), morseNumbers[i]); // Aggiunge i numeri alla mappa
+  morseMap.set(i.toString(), morseNumbers[i]); // Aggiunge i numeri alla mappa
 }
 
 // Aggiungere i simboli speciali alla mappa
-Object.entries(morseSpecialChars).forEach(([key, value]) => {morseMap.set(key, value);})
+Object.entries(morseSpecialChars).forEach(([key, value]) => { morseMap.set(key, value); })
+
+//MODEL
+
+
+//VIEW
 
 function playSound(duration) {
   return new Promise((resolve) => {
@@ -80,20 +88,24 @@ function playLine() {
   return playSound(line_duration);
 }
 
-function playDaHeckAreYouWriting(){
+function playDaHeckAreYouWriting() {
   //TODO: qualche sburrata incredibile per i caratteri che non sono inclusi codice morse.
 }
 
 async function morsify(input_string) {
   input_string = input_string.toLowerCase(); // Converte l'input a minuscolo
-  
-  for (let i = 0; i < input_string.length; i++) {
-    const current_char = input_string[i];
+
+  for (let i = 0; loop || i < input_string.length; i++) {
+    const current_char = input_string[i % input_string.length];
+
+    if (stop == true) {
+        break; // Esce dal ciclo
+    }
 
     if (current_char === " ") {
       // Spazio: intervallo più lungo per segnalare la fine della parola
       await delay(word_silence_duration * 1000);
-      continue; // Passa al prossimo carattere
+      continue; //Passa al prossimo carattere
     }
 
     const morseCode = morseMap.get(current_char);
@@ -117,6 +129,18 @@ async function morsify(input_string) {
   }
 }
 
-morsebutton.onclick = function() {
+//CONTROLLER
+
+morsebutton.onclick = function () {
+  stop = false;
   morsify(textfield.value);
+}
+
+stopbutton.onclick = function () {
+  stop = true;
+}
+
+loopbutton.onclick = function () {
+  loop = !loop;
+  
 }
