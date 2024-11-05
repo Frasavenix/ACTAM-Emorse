@@ -1,0 +1,68 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    justify-content: center;
+    align-items: center;
+    background-color: black;
+}
+
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    width: 100vw;
+    flex-direction: column
+}
+
+.button-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.textbox {
+    background-color: black;
+    border: 1px solid lightgrey; /* Definito un bordo iniziale */
+    border-color: lightgrey;
+    color: lightgrey;
+    padding: 10px;
+    font-size: 16px;
+    width: 20%; /* Larghezza dinamica */
+    height: 50%; /* Altezza dinamica */
+    resize: none; /* Evita il ridimensionamento */
+    outline: none; /* Rimuove il bordo di evidenziazione di default */
+    transition: border 0.4s ease;
+}
+
+.textbox:focus {
+    border: 1px solid white; /* Cambia il colore del bordo quando la textarea è selezionata */
+    background-color: black; /* Puoi personalizzare anche lo sfondo se lo desideri */
+    color: lightgrey;
+}
+
+.button{
+   width: 20%; /* Larghezza dinamica */
+   padding: 10px; /* Aggiunto padding per il pulsante */
+   border: 1px solid lightgrey; /* Definito un bordo per il pulsante */
+   border: solid;
+   background-color: black;
+   color: lightgrey;
+   margin-top: 5px; /* Riduci lo spazio tra textarea e pulsante */
+   transition: background-color 0.4s ease, color 0.1s ease; /* Aggiunge una transizione morbida per il cambio colore */
+}
+
+.button:hover {
+    background-color: lightgrey; /* Cambia il colore quando il cursore è sopra il pulsante */
+    border-color: lightgrey;
+    color: black; /* Cambia anche il testo in nero per contrasto */
+}
+
+.button:active {
+    background-color: #222; /* Grigio scuro quando il pulsante è cliccato */
+    color: white; /* Cambia il testo in bianco per contrasto */
+}
+
+.textbox, .startbutton { /* Applicare lo stesso box-sizing a entrambi */
+    box-sizing: border-box; /* Include padding e bordo nella larghezza */
+}
