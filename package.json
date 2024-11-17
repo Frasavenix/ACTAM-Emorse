@@ -1,0 +1,32 @@
+{
+  "name": "emorse",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "An emotional morse producer.",
+  "main": "./backend/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/frasavenix/ACTAM-Emorse.git"
+  },
+  "keywords": [
+    "Emotion",
+    "Morse",
+    "Music"
+  ],
+  "author": "Francesco Saverio Nisoli",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/frasavenix/ACTAM-Emorse/issues"
+  },
+  "homepage": "https://github.com/frasavenix/ACTAM-Emorse#readme",
+  "dependencies": {
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "openai": "^4.72.0",
+    "zod": "^3.23.8"
+  }
+}
