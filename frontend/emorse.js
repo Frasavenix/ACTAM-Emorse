@@ -2,7 +2,7 @@ const textfield = document.getElementById("textfield");
 const morsebutton = document.getElementById("morsebutton");
 const morseMap = new Map();
 const aud_context = new AudioContext();
-const dot_duration = 0.05;
+const dot_duration = 50;
 const line_duration = dot_duration * 3;
 const word_silence_duration = dot_duration * 7;
 
@@ -10,6 +10,8 @@ stop = true;
 const loop = false;
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
+
+//MODEL
 
 // Array che contiene il codice Morse per ogni lettera dell'alfabeto in ordine
 const morseCodes = [
@@ -58,7 +60,10 @@ for (let i = 0; i <= 9; i++) {
 // Aggiungere i simboli speciali alla mappa
 Object.entries(morseSpecialChars).forEach(([key, value]) => { morseMap.set(key, value); })
 
-//MODEL
+const eModes = {
+  "joy": ["C4", "D4", "E4", "F4", "G4", "A4", "B4"],
+  "sadness": ["C4", "D4", "Eb4", "F4", "G4", "Ab4", "Bb4"]
+}
 
 async function detectEmotion(prompt) {
   return fetch("http://localhost:3000", {
@@ -76,18 +81,11 @@ async function detectEmotion(prompt) {
 
 function playSound(duration) {
   return new Promise((resolve) => {
-    const osc = aud_context.createOscillator();
-    const gain = aud_context.createGain();
-    osc.frequency.value = 580;
-    osc.connect(gain);
-    gain.connect(aud_context.destination);
-    osc.start();
-
-    gain.gain.setValueAtTime(1, aud_context.currentTime); // Inizia con gain a 1
-    gain.gain.setValueAtTime(0, aud_context.currentTime + duration); // Finisce con gain a 0
-
-    osc.stop(aud_context.currentTime + duration); // Ferma l'oscillatore dopo la durata
-    osc.onended = resolve; // Risolve la Promise una volta terminato il suono
+    const osc = new Tone.Oscillator(580, "sine").toDestination().start();
+    setTimeout(() => {
+      osc.stop();
+    }, duration);
+    osc.onstop = resolve;
   });
 }
 
@@ -110,12 +108,12 @@ async function morsify(input_string) {
     const current_char = input_string[i % input_string.length];
 
     if (stop == true) {
-        break; // Esce dal ciclo
+      break; // Esce dal ciclo
     }
 
     if (current_char === " ") {
       // Spazio: intervallo più lungo per segnalare la fine della parola
-      await delay(word_silence_duration * 1000);
+      await delay(word_silence_duration);
       continue; //Passa al prossimo carattere
     }
 
@@ -129,10 +127,10 @@ async function morsify(input_string) {
           await playLine();
         }
         // Attende un piccolo intervallo tra i simboli nel codice Morse (es. "." o "-")
-        await delay(dot_duration * 1000);
+        await delay(dot_duration);
       }
       // Attende un intervallo medio tra i caratteri nella parola
-      await delay(line_duration * 1000);
+      await delay(line_duration);
     } else {
       // Carattere non supportato
       playDaHeckAreYouWriting();
@@ -164,5 +162,5 @@ stopbutton.onclick = function () {
 
 loopbutton.onclick = function () {
   loop = !loop;
-  
+
 }

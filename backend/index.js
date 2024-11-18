@@ -16,7 +16,7 @@ app.post("/", async (req, res) => {
         return res.status(400).json({ error: "'prompt' field is mandatory." });
     }
 
-    try{
+    try {
         const response = await fetch('https://api.openai.com/v1/completions', {
             method: 'POST',
             headers: {
@@ -26,9 +26,10 @@ app.post("/", async (req, res) => {
             body: JSON.stringify({
                 model: 'gpt-4o-mini',
                 messages: [{ role: "user", content: prompt },
-                    { role: "system", content: "You are an emotionally-intelligent and empathetic agent. "
-                        + "You will be given a piece of text, and your task is to identify all the emotions expressed by the writer of the text. " 
-                        + "The text could be in different languages. You are only allowed to make selections from the following emotions, " 
+                {
+                    role: "system", content: "You are an emotionally-intelligent and empathetic agent. "
+                        + "You will be given a piece of text, and your task is to identify all the emotions expressed by the writer of the text. "
+                        + "The text could be in different languages. You are only allowed to make selections from the following emotions, "
                         + "and don’t use any other words: [Joy, Sadness, Anger, Anxiety, Calm, Disgust, Arousal, Non-sense]. "
                         + "Only select those ones for which you are reasonably confident that they are expressed in the text. "
                         + "If no emotion is clearly expressed, select ‘neutral’. Reply with only the list of emotions in form of a JSON array, "
@@ -37,7 +38,8 @@ app.post("/", async (req, res) => {
                         + "description which suits one of the following words: [Rain, Sea, Beach, City, Mountain, Forest]. "
                         + "Don't use any other words. If the text does not suit any of these words, select ‘None’."
                         + "For example purposes, here's how the output should look like:"
-                        + "\n{ 'emotions': [ {'emotion': 'Sadness', 'accuracy': 0.8}, {'emotion': 'Anxiety', 'accuracy': 0.15}, {'emotion': 'Anger', 'accuracy': 0.05} ], 'ambience': 'Sea'}" }
+                        + "\n{ 'emotions': [ {'emotion': 'Sadness', 'accuracy': 0.8}, {'emotion': 'Anxiety', 'accuracy': 0.15}, {'emotion': 'Anger', 'accuracy': 0.05} ], 'ambience': 'Sea'}"
+                }
                 ],
                 max_tokens: 100,
                 temperature: 0.7,
