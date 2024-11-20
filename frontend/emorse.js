@@ -67,7 +67,7 @@ const eModes = {
   "tenderness": ["-10", "-8", "-7", "-5", "-3", "-2", "0", "2", "4", "5", "7", "9", "10"], // mixolydian
   "mystery": ["-10", "-8", "-7", "-5", "-4", "-2", "0", "2", "4", "5", "7", "8", "10"], // mixolydian flat 6
   "nostalgia/longing": ["-10", "-9", "-7", "-5", "-3", "-2", "0", "2", "3", "5", "7", "9", "10"],  // dorian
-  "sadness": ["-10", "-9", "-7", "-5", "-4", "-2", "0", "2", "3", "5", "7", "8", "10"], // eolian
+  "sadness": ["-10", "-9", "-7", "-5", "-4", "-2", "0", "2", "3", "5", "7", "8", "10"], // aeolian
   "unease": ["-11", "-9", "-7", "-5", "-4", "-2", "0", "1", "3", "5", "7", "8", "10"], // phrygian
   "tension": ["-11", "-9", "-7", "-6", "-4", "-2", "0", "1", "3", "5", "6", "8", "10"], // locrian
   "non-sense": ["-11", "-10", "-9", "-8", "-7", "-6", "-5", "-4", "-3", "-2", "-1", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"], //chromatic
@@ -104,30 +104,45 @@ function playSound(duration, frequency) {
 }
 
 function playDot(key, scale, velocity) {
-  const frequency = key * Math.pow(2, scale[Math.floor(Math.random() * scale.length)]/12);
+  let frequency = key * Math.pow(2, scale[Math.floor(Math.random() * scale.length)]/12);
   return playSound(dot_duration/velocity, frequency);
 }
 
 function playLine(key, scale, velocity) {
-  const frequency = key * Math.pow(2, scale[Math.floor(Math.random() * scale.length)]/12);
-  return playSound(line_duration/velocity, key, scale);
+  let frequency = key * Math.pow(2, scale[Math.floor(Math.random() * scale.length)]/12);
+  return playSound(line_duration/velocity, frequency);
 }
 
 function playBass(key){
-  const osc = new Tone.Oscillator(key/4, "sine").toDestination().start();
+  let osc = new Tone.Oscillator(key/4, "sine").toDestination().start();
+}
+
+function playAmbience(ambience){
+  let amb =  new Tone.Player("../resources/sounds/" + ambience + ".mp3").toDestination();
+  amb.loop = true;
+  // play as soon as the buffer is loaded
+  amb.autostart = true;
+  
 }
 
 function playDaHeckAreYouWriting() {
   //TODO: qualche sburrata incredibile per i caratteri che non sono inclusi codice morse.
 }
 
-async function morsify(input_string, emotion, velocity) {
+async function morsify(input_string, emotion, velocity, ambience) {
   let current_key = key_roots[Math.floor(Math.random() * key_roots.length)];
   let current_scale = eModes[emotion];
   input_string = input_string.toLowerCase(); // converts the input to lower case
 
-  playBass(current_key);
+  if(ambience != "none"){
+    playAmbience(ambience);
+  }
 
+  if(input_string.length != 0){
+    //playBass(current_key); 
+    //TODO: understand why everything gets cracked when too many sounds are played.
+    //Consider applying a cutoff sort of filter in order to lower the gain and reduce the possibility of cracks :/
+  }
   for (let i = 0; loop || i < input_string.length; i++) {
     const current_char = input_string[i % input_string.length];
 
@@ -178,7 +193,7 @@ morsebutton.onclick = async function () {
     morsify(textfield.value, "non-sense", 2);
   }*/
   
-  morsify(textfield.value, "non-sense", 2);
+  morsify(textfield.value, "sadness", 0.2, "rain");
 }
 
 stopbutton.onclick = function () {
