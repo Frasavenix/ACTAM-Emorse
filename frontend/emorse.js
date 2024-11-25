@@ -1,13 +1,15 @@
 const textfield = document.getElementById("textfield");
 const morsebutton = document.getElementById("morsebutton");
+const stopbutton = document.getElementById("stopbutton");
 const morseMap = new Map();
 const aud_context = new AudioContext();
 const dot_duration = 50;
 const line_duration = dot_duration * 3;
 const word_silence_duration = dot_duration * 7;
 
+stopbutton.hidden = true;
 stop = true;
-const loop = false;
+let loop = true;
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
@@ -93,9 +95,11 @@ async function detectEmotion(prompt) {
 
 //VIEW
 
-function playSound(duration, frequency) {
+function playTimedSound(duration, frequency) {
   return new Promise((resolve) => {
-    const osc = new Tone.Oscillator(frequency, "sine").toDestination().start();
+    const osc = new Tone.Oscillator(frequency, "sine")
+    osc.volume.value = -6;
+    osc.toDestination().start();
     setTimeout(() => {
       osc.stop();
     }, duration);
@@ -105,16 +109,19 @@ function playSound(duration, frequency) {
 
 function playDot(key, scale, velocity) {
   let frequency = key * Math.pow(2, scale[Math.floor(Math.random() * scale.length)]/12);
-  return playSound(dot_duration/velocity, frequency);
+  return playTimedSound(dot_duration/velocity, frequency);
 }
 
 function playLine(key, scale, velocity) {
   let frequency = key * Math.pow(2, scale[Math.floor(Math.random() * scale.length)]/12);
-  return playSound(line_duration/velocity, frequency);
+  return playTimedSound(line_duration/velocity, frequency);
 }
 
 function playBass(key){
-  let osc = new Tone.Oscillator(key/4, "sine").toDestination().start();
+  let osc = new Tone.Oscillator(key/4, "sine")
+  osc.volume.value = -6;
+  osc.toDestination().start();
+  return osc;
 }
 
 function playAmbience(ambience){
@@ -122,32 +129,49 @@ function playAmbience(ambience){
   amb.loop = true;
   // play as soon as the buffer is loaded
   amb.autostart = true;
-  
+  return amb;
 }
 
 function playDaHeckAreYouWriting() {
   //TODO: qualche sburrata incredibile per i caratteri che non sono inclusi codice morse.
+  changeKey();
 }
 
 async function morsify(input_string, emotion, velocity, ambience) {
   let current_key = key_roots[Math.floor(Math.random() * key_roots.length)];
   let current_scale = eModes[emotion];
+  let ambPlayer = null;
+  let bassOsc = null;
   input_string = input_string.toLowerCase(); // converts the input to lower case
 
   if(ambience != "none"){
-    playAmbience(ambience);
+    ambPlayer = playAmbience(ambience);
   }
 
   if(input_string.length != 0){
-    //playBass(current_key); 
+    bassOsc = playBass(current_key); 
     //TODO: understand why everything gets cracked when too many sounds are played.
     //Consider applying a cutoff sort of filter in order to lower the gain and reduce the possibility of cracks :/
   }
+
   for (let i = 0; loop || i < input_string.length; i++) {
     const current_char = input_string[i % input_string.length];
 
     if (stop == true) {
+      ambPlayer.stop();
+      bassOsc.stop();
       break; // exits the cycle
+    }
+
+    if(!morseMap.has(current_char)){
+      // the character is not morse-coded
+      //changes key
+      current_key = key_roots[Math.floor(Math.random() * key_roots.length)];
+      bassOsc.stop();
+      bassOsc = playBass(current_key);
+      //playDaHeckAreYouWriting();
+
+      continue;
     }
 
     if (current_char === " ") {
@@ -170,10 +194,11 @@ async function morsify(input_string, emotion, velocity, ambience) {
       }
       // waits for a "medium" time interval between in-word intervals
       await delay(line_duration/velocity);
-    } else {
-      // the character is not morse coded
-      playDaHeckAreYouWriting();
     }
+  }
+
+  if(!loop){
+    stop = true;
   }
 }
 
@@ -194,10 +219,14 @@ morsebutton.onclick = async function () {
   }*/
   
   morsify(textfield.value, "sadness", 0.2, "rain");
+  morsebutton.hidden = true;
+  stopbutton.hidden = false;
 }
 
 stopbutton.onclick = function () {
   stop = true;
+  morsebutton.hidden = false;
+  stopbutton.hidden = true;
 }
 
 loopbutton.onclick = function () {
