@@ -98,7 +98,7 @@ async function detectEmotion(prompt) {
 function playTimedSound(duration, frequency) {
   return new Promise((resolve) => {
     const osc = new Tone.Oscillator(frequency, "sine")
-    osc.volume.value = -6;
+    osc.volume.value = -4;
     osc.toDestination().start();
     setTimeout(() => {
       osc.stop();
@@ -126,6 +126,7 @@ function playBass(key){
 
 function playAmbience(ambience){
   let amb =  new Tone.Player("../resources/sounds/" + ambience + ".mp3").toDestination();
+  amb.volume.value = -12;
   amb.loop = true;
   // play as soon as the buffer is loaded
   amb.autostart = true;
@@ -227,9 +228,4 @@ stopbutton.onclick = function () {
   stop = true;
   morsebutton.hidden = false;
   stopbutton.hidden = true;
-}
-
-loopbutton.onclick = function () {
-  loop = !loop;
-
 }

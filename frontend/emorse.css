@@ -69,9 +69,7 @@ body {
     /* Aggiunge una transizione morbida per il cambio colore */
 }
 
-#stopbutton,
-#harmonizebutton,
-#loopbutton {
+#stopbutton {
     transition: border-color 0.4s ease, color 0.1s ease, background-color 0.4s ease, color 0.1s ease;
     /* Aggiunge una transizione morbida per il cambio colore */
 }
