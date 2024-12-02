@@ -104,8 +104,8 @@ function playTimedSound(duration, frequency) {
     osc.toDestination().start();
     setTimeout(() => {
       osc.stop();
+      resolve();
     }, duration);
-    osc.onstop = resolve;
   });
 }
 
@@ -167,12 +167,12 @@ async function morsify(input_string, emotion, velocity, ambience) {
     //Consider applying a cutoff sort of filter in order to lower the gain and reduce the possibility of cracks :/
   }
 
-  for (let i = 0; loop || i < input_string.length; i++) {
+  for (let i = 0; loop && !stop; i++) {
     const current_char = input_string[i % input_string.length];
 
     if (stop == true) {
-      ambPlayer.stop();
-      bassOsc.stop();
+      if (ambPlayer) ambPlayer.stop();
+      if (bassOsc) bassOsc.stop();
       break; // exits the cycle
     }
 
@@ -180,7 +180,7 @@ async function morsify(input_string, emotion, velocity, ambience) {
       // the character is not morse-coded
       // changes key
       current_key = key_roots[Math.floor(Math.random() * key_roots.length)];
-      bassOsc.stop();
+      if (bassOsc) bassOsc.stop();
       bassOsc = playBass(current_key);
       //playDaHeckAreYouWriting();
 
@@ -220,7 +220,7 @@ async function morsify(input_string, emotion, velocity, ambience) {
 //CONTROLLER
 
 function getRandomNoteInWindow(scale, pivot_index) {
-  // Calcola i limiti della finestra
+  // computes the limits of the window
   const half_window = Math.floor(new_note_window / 2);
   const min_index = Math.max(0, pivot_index - half_window);
   const max_index = Math.min(scale.length - 1, pivot_index + half_window);
