@@ -6,8 +6,7 @@ const aud_context = new AudioContext();
 const dot_duration = 50;
 const line_duration = dot_duration * 3;
 const word_silence_duration = dot_duration * 7;
-const new_note_window = 7;
-let current_note_shift = 0;
+const new_note_window = 5;
 stopbutton.hidden = true;
 stop = true;
 let loop = true;
@@ -15,6 +14,11 @@ let loop = true;
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
 //MODEL
+let humanizer_intensity = 0.1
+let current_note_shift = 0;
+let current_note_index = 0;
+let current_scale = null;
+let current_effects = null;
 
 // array containing all the morse codes for every alphabet letter
 const morse_code = [
@@ -65,22 +69,55 @@ Object.entries(morse_special_chars).forEach(([key, value]) => { morse_map.set(ke
 
 // map relating scales (expressed as semitones distances from the root) and emotions.
 const eModes = {
-  "wonder": ["-12", "-10", "-8", "-6", "-5", "-3", "-1", "0", "2", "4", "6", "7", "9", "11", "12"], // lydian
-  "joy": ["-12", "-10", "-8", "-7", "-5", "-3", "-1", "0", "2", "4", "5", "7", "9", "11", "12"], // ionian
-  "tenderness": ["-12", "-10", "-8", "-7", "-5", "-3", "-2", "0", "2", "4", "5", "7", "9", "10", "12"], // mixolydian
-  "mystery": ["-12", "-10", "-8", "-7", "-5", "-4", "-2", "0", "2", "4", "5", "7", "8", "10", "12"], // mixolydian flat 6
-  "nostalgia/longing": ["-12", "-10", "-9", "-7", "-5", "-3", "-2", "0", "2", "3", "5", "7", "9", "10", "12"],  // dorian
-  "sadness": ["-12", "-10", "-9", "-7", "-5", "-4", "-2", "0", "2", "3", "5", "7", "8", "10", "12"], // aeolian
-  "unease": ["-12", "-11", "-9", "-7", "-5", "-4", "-2", "0", "1", "3", "5", "7", "8", "10", "12"], // phrygian
-  "tension": ["-12", "-11", "-9", "-7", "-6", "-4", "-2", "0", "1", "3", "5", "6", "8", "10", "12"], // locrian
-  "non-sense": ["-12", "-11", "-10", "-9", "-8", "-7", "-6", "-5", "-4", "-3", "-2", "-1", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"], //chromatic
+  "wonder": [-12, -10, -8, -6, -5, -3, -1, 0, 2, 4, 6, 7, 9, 11, 12], // lydian
+  "joy": [-12, -10, -8, -7, -5, -3, -1, 0, 2, 4, 5, 7, 9, 11, 12], // ionian
+  "tenderness": [-12, -10, -8, -7, -5, -3, -2, 0, 2, 4, 5, 7, 9, 10, 12], // mixolydian
+  "mystery": [-12, -10, -8, -7, -5, -4, -2, 0, 2, 4, 5, 7, 8, 10, 12], // mixolydian flat 6
+  "nostalgia/longing": [-12, -10, -9, -7, -5, -3, -2, 0, 2, 3, 5, 7, 9, 10, 12],  // dorian
+  "sadness": [-12, -10, -9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10, 12], // aeolian
+  "unease": [-12, -11, -9, -7, -5, -4, -2, 0, 1, 3, 5, 7, 8, 10, 12], // phrygian
+  "tension": [-12, -11, -9, -7, -6, -4, -2, 0, 1, 3, 5, 6, 8, 10, 12], // locrian
+  "non-sense": [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], //chromatic
+  "hilarity/goofiness": [], // goofy sounds
+  "disgust": [], // disgustive sounds
+  "neutral": [] // normal morse
+}
+
+const emo_ffects = {
+  "wonder": [
+    //new Tone.Reverb({ decay: 3, wet: 0.4 }),
+    //new Tone.Chebyshev(14).toDestination()
+  ],
+  "joy": [],
+  "tenderness": [],
+  "mystery": [],
+  "nostalgia/longing": [],
+  "sadness": [],
+  "unease": [],
+  "tension": [],
+  "non-sense": [],
+  "hilarity/goofiness": [],
+  "disgust": [],
+  "neutral": []
+}
+
+const emotion_scale_chords = {
+  "wonder": [0, 4, 6, 7, 11], // lydian
+  "joy": [0, 4, 7, 11], // ionian
+  "tenderness": [0, 5, 7, 10], // mixolydian
+  "mystery": [], // mixolydian flat 6
+  "nostalgia/longing": [0, 3, 7, 10],  // dorian
+  "sadness": [0, 3, 7], // aeolian
+  "unease": [0, 1, 5, 7, 10], // phrygian
+  "tension": [0, 3, 6, 10], // locrian
+  "non-sense": [0, 6], //chromatic
   "hilarity/goofiness": [], // goofy sounds
   "disgust": [], // disgustive sounds
   "neutral": [] // normal morse
 }
 
 // the 4th octave's notes frequencies
-const key_roots = [261.63, 277.18, 293.66, 311.13, 329.63, 349.23, 369.99, 392, 415.30, 440, 466.16, 493.88]; 
+const key_roots = [311.12, 329.63, 349.23, 369.99, 392, 415.30, 440, 466.16, 493.88, 523.25, 554.36, 587.32]; 
 
 async function detectEmotion(prompt) {
   return fetch("http://localhost:3000", {
@@ -97,11 +134,21 @@ async function detectEmotion(prompt) {
 //VIEW
 
 // generic sound playing function
-function playTimedSound(duration, frequency) {
+function playTimedSound(duration, frequency, effects) {
   return new Promise((resolve) => {
     const osc = new Tone.Oscillator(frequency, "sine")
-    osc.volume.value = -6;
-    osc.toDestination().start();
+    osc.volume.value = -8;
+
+    let previousEffect = osc;
+    effects.forEach((effect) => {
+        // connects subsequently the effects
+        previousEffect.connect(effect);
+        previousEffect = effect;
+    });
+
+    // connects the last effect to the destination
+    previousEffect.toDestination()
+    osc.start();
     setTimeout(() => {
       osc.stop();
       resolve();
@@ -110,17 +157,19 @@ function playTimedSound(duration, frequency) {
 }
 
 // plays a dot sound
-function playDot(key, scale, velocity, current_note_index) {
-  current_note_shift = getRandomNoteInWindow(scale, current_note_index);
-  let frequency = key * Math.pow(2, current_note_shift/12);
-  return playTimedSound(dot_duration/velocity, frequency);
+function playDot(key, scale, velocity, effects) {
+  current_note_index = getRandomNoteInWindow(scale, current_note_index);
+  let frequency = key * Math.pow(2, current_scale[current_note_index]/12);
+  const duration = humanizeDuration(dot_duration/velocity, humanizer_intensity);
+  return playTimedSound(duration, frequency, effects);
 }
 
 // plays a line sound
-function playLine(key, scale, velocity, current_note_index) {
-  current_note_shift = getRandomNoteInWindow(scale, current_note_index);
-  let frequency = key * Math.pow(2, current_note_shift/12);
-  return playTimedSound(line_duration/velocity, frequency);
+function playLine(key, scale, velocity, effects) {
+  current_note_index = getRandomNoteInWindow(scale, current_note_index);
+  let frequency = key * Math.pow(2, current_scale[current_note_index]/12);
+  const duration = humanizeDuration(line_duration/velocity, humanizer_intensity);
+  return playTimedSound(duration, frequency, effects);
 }
 
 // plays bass sound(s)
@@ -133,8 +182,8 @@ function playBass(key){
 
 // play a specified ambience sample sound
 function playAmbience(ambience){
-  let amb =  new Tone.Player("../resources/sounds/" + ambience + ".mp3").toDestination();
-  amb.volume.value = -12;
+  let amb =  new Tone.Player({url: "../resources/sounds/" + ambience + ".mp3", fadeIn: 2, fadeOut: 2}).toDestination();
+  amb.volume.value = -10;
   amb.loop = true;
   // play as soon as the buffer is loaded
   amb.autostart = true;
@@ -151,8 +200,9 @@ function playDaHeckAreYouWriting() {
    according to morse code and emotion detection, plays them in a "musical" way. */
 async function morsify(input_string, emotion, velocity, ambience) {
   let current_key = key_roots[Math.floor(Math.random() * key_roots.length)];
-  let current_scale = eModes[emotion];
-  let current_note_index = Math.floor(current_scale.length/2);
+  current_scale = eModes[emotion];
+  current_note_index = Math.floor(current_scale.length/2);
+  current_effects = emo_ffects[emotion];
   let ambPlayer = null;
   let bassOsc = null;
   input_string = input_string.toLowerCase(); // converts the input to lower case
@@ -198,23 +248,29 @@ async function morsify(input_string, emotion, velocity, ambience) {
       // reproduces every Morse symbol for the current character
       for (let j = 0; j < morseCode.length; j++) {
         if (morseCode[j] === ".") {
-          await playDot(current_key, current_scale, velocity, current_note_index);
-          current_note_index = shiftPivot(current_scale.length, current_note_index, current_note_shift);
+          await playDot(current_key, current_scale, velocity, current_effects);
+          //current_note_index = shiftPivot(current_scale.length, current_note_index, current_note_shift);
+          console.log(current_scale[current_note_index]);
         } else if (morseCode[j] === "-") {
-          await playLine(current_key, current_scale, velocity, current_note_index);
-          current_note_index = shiftPivot(current_scale.length, current_note_index, current_note_shift);
+          await playLine(current_key, current_scale, velocity, current_effects);
+          //current_note_index = shiftPivot(current_scale.length, current_note_index, current_note_shift);
+          console.log(current_scale[current_note_index]);
         }
         // waits for a little interval between the morse code symbols (ex. "." o "-")
-        await delay(dot_duration/velocity);
+        await delay(humanizeDuration(dot_duration/velocity, humanizer_intensity));
       }
       // waits for a "medium" time interval between in-word intervals
-      await delay(line_duration/velocity);
+      await delay(humanizeDuration(line_duration/velocity, humanizer_intensity));
     }
   }
 
   if(!loop){
     stop = true;
   }
+
+  if (ambPlayer) ambPlayer.stop();
+  if (bassOsc) bassOsc.stop();
+
 }
 
 //CONTROLLER
@@ -227,14 +283,14 @@ function getRandomNoteInWindow(scale, pivot_index) {
 
   // randomly selects the new note index
   const random_index = Math.floor(Math.random() * (max_index - min_index + 1)) + min_index;
-  return scale[random_index];
+  return random_index;
 }
 
-function shiftPivot(scale_length, pivot_index, shift_amount) {
-  // shifts the pivot, ensuring it's between the scale limits
-  return Math.min(Math.max(0, pivot_index + shift_amount), scale_length - 1);
+// randomly humanizes the duration of the sounds with a given intensity
+function humanizeDuration(duration, humanizer_intensity){
+  const variation = (Math.random() * 2 - 1) * humanizer_intensity * duration;
+  return variation + duration;
 }
-
 
 morsebutton.onclick = async function () {
   stop = false;
@@ -250,7 +306,7 @@ morsebutton.onclick = async function () {
     morsify(textfield.value, "non-sense", 2);
   }*/
   
-  morsify(textfield.value, "sadness", 0.2, "rain");
+  morsify(textfield.value, "wonder", 0.01, "sea");
   morsebutton.hidden = true;
   stopbutton.hidden = false;
 }
