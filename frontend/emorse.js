@@ -180,6 +180,32 @@ function playBass(key){
   return osc;
 }
 
+function playChord(key, chordSemitones){
+  let polySynth = new Tone.PolySynth(Tone.Synth).toDestination();
+
+  // synth parameters
+  // TODO: maybe getting those dynamically?
+  polySynth.set({
+    oscillator: { type: "triangle" },
+    envelope: {
+      attack: 0.5,
+      decay: 0.2,
+      sustain: 0.8,
+      release: 1
+    }
+  });
+
+  const chord = chordSemitones.map((semitone) => {
+    key * Math.pow(2, semitone/12);
+  })
+
+  polySynth.volume.value = -12;
+
+  polySynth.triggerAttack(chord);
+
+  return polySynth;
+}
+
 // play a specified ambience sample sound
 function playAmbience(ambience){
   let amb =  new Tone.Player({url: "../resources/sounds/" + ambience + ".mp3", fadeIn: 2, fadeOut: 2}).toDestination();
@@ -205,6 +231,7 @@ async function morsify(input_string, emotion, velocity, ambience) {
   current_effects = emo_ffects[emotion];
   let ambPlayer = null;
   let bassOsc = null;
+  let chordSynth = null;
   input_string = input_string.toLowerCase(); // converts the input to lower case
 
   if(ambience != "none"){
@@ -213,7 +240,7 @@ async function morsify(input_string, emotion, velocity, ambience) {
 
   if(input_string.length != 0){
     bassOsc = playBass(current_key); 
-    //TODO: understand why everything gets cracked when too many sounds are played.
+    chordSynth = playChord(current_key, emotion_scale_chords[emotion]);
     //Consider applying a cutoff sort of filter in order to lower the gain and reduce the possibility of cracks :/
   }
 
@@ -223,6 +250,7 @@ async function morsify(input_string, emotion, velocity, ambience) {
     if (stop == true) {
       if (ambPlayer) ambPlayer.stop();
       if (bassOsc) bassOsc.stop();
+      if (chordSynth) chordSynth.releaseAll();
       break; // exits the cycle
     }
 
