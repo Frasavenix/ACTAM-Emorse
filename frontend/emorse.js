@@ -106,7 +106,7 @@ const emotion_scale_chords = {
   "joy": [0, 4, 7, 11], // ionian
   "tenderness": [0, 5, 7, 10], // mixolydian
   "mystery": [], // mixolydian flat 6
-  "nostalgia/longing": [0, 3, 7, 10],  // dorian
+  "nostalgia/longing": [0, 3, 7, 10], // dorian
   "sadness": [0, 3, 7], // aeolian
   "unease": [0, 1, 5, 7, 10], // phrygian
   "tension": [0, 3, 6, 10], // locrian
@@ -175,7 +175,7 @@ function playLine(key, scale, velocity, effects) {
 // plays bass sound(s)
 function playBass(key){
   let osc = new Tone.Oscillator(key/4, "sine")
-  osc.volume.value = -8;
+  osc.volume.value = -10;
   osc.toDestination().start();
   return osc;
 }
@@ -186,7 +186,7 @@ function playChord(key, chordSemitones){
   // synth parameters
   // TODO: maybe getting those dynamically?
   polySynth.set({
-    oscillator: { type: "triangle" },
+    oscillator: { type: "sine" },
     envelope: {
       attack: 0.5,
       decay: 0.2,
@@ -195,11 +195,11 @@ function playChord(key, chordSemitones){
     }
   });
 
-  const chord = chordSemitones.map((semitone) => {
-    key * Math.pow(2, semitone/12);
-  })
+  const chord = chordSemitones.map(semitone => 
+    Tone.Frequency(key/2 * Math.pow(2, semitone/12)).toNote()
+  );
 
-  polySynth.volume.value = -12;
+  polySynth.volume.value = -15;
 
   polySynth.triggerAttack(chord);
 
@@ -334,7 +334,7 @@ morsebutton.onclick = async function () {
     morsify(textfield.value, "non-sense", 2);
   }*/
   
-  morsify(textfield.value, "wonder", 0.01, "sea");
+  morsify(textfield.value, "unease", 0.2, "sea");
   morsebutton.hidden = true;
   stopbutton.hidden = false;
 }
