@@ -200,7 +200,6 @@ function playChord(key, chordSemitones){
   );
 
   polySynth.volume.value = -15;
-
   polySynth.triggerAttack(chord);
 
   return polySynth;
@@ -210,6 +209,9 @@ function playChord(key, chordSemitones){
 function playAmbience(ambience){
   let amb =  new Tone.Player({url: "../resources/sounds/" + ambience + ".mp3", fadeIn: 2, fadeOut: 2}).toDestination();
   amb.volume.value = -10;
+  if(ambience == "rain"){
+    amb.volume.value = -18;
+  }
   amb.loop = true;
   // play as soon as the buffer is loaded
   amb.autostart = true;
@@ -259,7 +261,10 @@ async function morsify(input_string, emotion, velocity, ambience) {
       // changes key
       current_key = key_roots[Math.floor(Math.random() * key_roots.length)];
       if (bassOsc) bassOsc.stop();
+      if (chordSynth) chordSynth.releaseAll();
       bassOsc = playBass(current_key);
+      chordSynth = playChord(current_key, emotion_scale_chords[emotion]);
+
       //playDaHeckAreYouWriting();
 
       continue;
@@ -298,6 +303,7 @@ async function morsify(input_string, emotion, velocity, ambience) {
 
   if (ambPlayer) ambPlayer.stop();
   if (bassOsc) bassOsc.stop();
+  if (chordSynth) chordSynth.releaseAll();
 
 }
 
@@ -334,7 +340,7 @@ morsebutton.onclick = async function () {
     morsify(textfield.value, "non-sense", 2);
   }*/
   
-  morsify(textfield.value, "unease", 0.2, "sea");
+  morsify(textfield.value, "tension", 0.8, "rain");
   morsebutton.hidden = true;
   stopbutton.hidden = false;
 }
