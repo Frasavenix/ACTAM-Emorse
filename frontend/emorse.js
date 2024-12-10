@@ -11,14 +11,15 @@ stopbutton.hidden = true;
 stop = true;
 let loop = true;
 
-const delay = ms => new Promise(res => setTimeout(res, ms));
-
 //MODEL
 let humanizer_intensity = 0.1
 let current_note_shift = 0;
 let current_note_index = 0;
 let current_scale = null;
 let current_effects = null;
+let oscSynth = null;
+let lowpass = null;
+let compressor = null;
 
 // array containing all the morse codes for every alphabet letter
 const morse_code = [
@@ -133,43 +134,102 @@ async function detectEmotion(prompt) {
 
 //VIEW
 
-// generic sound playing function
-function playTimedSound(duration, frequency, effects) {
-  return new Promise((resolve) => {
-    const osc = new Tone.Oscillator(frequency, "sine")
-    osc.volume.value = -8;
+// function used to wait some specified time
+function delay(ms, signal) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => resolve(), ms);
 
-    let previousEffect = osc;
-    effects.forEach((effect) => {
-        // connects subsequently the effects
-        previousEffect.connect(effect);
-        previousEffect = effect;
-    });
+    if (signal) {
+      signal.addEventListener("abort", () => {
+        clearTimeout(timeout);
+        reject(new Error("playback stopped."));
+      });
+    }
+  });
+}
+
+// generic sound playing function
+function playTimedSound(duration, frequency, effects, signal) {
+  return new Promise((resolve, reject) => {
+     if(!oscSynth || oscSynth.disposed){
+      oscSynth = new Tone.Synth({
+        oscillator: {
+          type: "sine", // Forma d'onda sinusoidale
+        },
+        envelope: {
+          attack: duration / 1000 / 100,              // fade-in
+          sustain: 1 - 2 * (duration / 1000 / 100),   // full note time
+          release: duration / 1000 / 100,             // fade-out
+        },
+      });
+
+      let last_effect = oscSynth;
+      effects.forEach((effect) => {
+        last_effect.connect(effect);
+        last_effect = effect;
+      });
+  
+      lowpass = new Tone.Filter({
+        frequency: 8000,  // Frequenza di taglio
+        type: "lowpass",  // Tipo di filtro
+        rolloff: -12,     // Pendenza in dB per ottava
+      });
+      
+      last_effect.connect(lowpass);
+      last_effect = lowpass;
+  
+      compressor = new Tone.Compressor({
+        threshold: -9,  // Livello a cui inizia la compressione
+        ratio: 3,       // Rapporto di compressione
+        attack: 0.01,   // Tempo per iniziare la compressione
+        release: 0.1,   // Tempo per rilasciare la compressione
+      });
+      
+      last_effect.connect(compressor);
+      last_effect = compressor;
+      
+      
+      // connects the last effect to the destination
+      last_effect.toDestination();
+      oscSynth.volume.value = -10;
+
+    }else{
+      oscSynth.attack = duration / 1000 / 50;
+      oscSynth.release = duration / 1000 / 50;
+      oscSynth.sustain = 1 - 2 * (duration / 1000 / 100);
+    }
 
     // connects the last effect to the destination
-    previousEffect.toDestination()
-    osc.start();
-    setTimeout(() => {
-      osc.stop();
-      resolve();
+    //previousEffect.toDestination()
+
+    oscSynth.triggerAttackRelease(frequency, duration / 1000);
+
+    const timeout = setTimeout(() => {
+      if (!signal.aborted) resolve();
     }, duration);
+
+    signal.addEventListener("abort", () => {
+      oscSynth.triggerRelease();
+      clearTimeout(timeout);
+      reject(new Error("playback stopped."));
+    });  
   });
 }
 
 // plays a dot sound
-function playDot(key, scale, velocity, effects) {
+function playDot(key, scale, velocity, effects, signal) {
   current_note_index = getRandomNoteInWindow(scale, current_note_index);
   let frequency = key * Math.pow(2, current_scale[current_note_index]/12);
   const duration = humanizeDuration(dot_duration/velocity, humanizer_intensity);
-  return playTimedSound(duration, frequency, effects);
+  return playTimedSound(duration, frequency, effects, signal);
 }
 
 // plays a line sound
-function playLine(key, scale, velocity, effects) {
+function playLine(key, scale, velocity, effects, signal) {
   current_note_index = getRandomNoteInWindow(scale, current_note_index);
   let frequency = key * Math.pow(2, current_scale[current_note_index]/12);
   const duration = humanizeDuration(line_duration/velocity, humanizer_intensity);
-  return playTimedSound(duration, frequency, effects);
+  return playTimedSound(duration, frequency, effects, signal);
 }
 
 // plays bass sound(s)
@@ -224,9 +284,28 @@ function playDaHeckAreYouWriting() {
   changeKey();
 }
 
+let abort_controller = null;
+
+// aborting/stopping function
+function stopPlayback() {
+  if (abort_controller) {
+    abort_controller.abort(); // abort ongoing operations immediately
+    abort_controller = null; // reset for future use
+  }
+}
+
+// debounced version of the stop playback function
+const debouncedStopPlayback = debounce(stopPlayback, 300); // 50ms delay
+
+
 /* core function of the application: loops on the characters contained in the text box and, 
    according to morse code and emotion detection, plays them in a "musical" way. */
 async function morsify(input_string, emotion, velocity, ambience) {
+
+  // creating an instance of abort controller, wich will be used in order to immediately stop the on-going playing sound (or delay).
+  abort_controller = new AbortController();
+  const { signal } = abort_controller;
+
   let current_key = key_roots[Math.floor(Math.random() * key_roots.length)];
   current_scale = eModes[emotion];
   current_note_index = Math.floor(current_scale.length/2);
@@ -246,69 +325,84 @@ async function morsify(input_string, emotion, velocity, ambience) {
     //Consider applying a cutoff sort of filter in order to lower the gain and reduce the possibility of cracks :/
   }
 
-  for (let i = 0; loop && !stop; i++) {
-    const current_char = input_string[i % input_string.length];
+  try{
+    for (let i = 0; !signal.aborted; i++) {
+      // stop check
+      if (signal.aborted) throw new Error("playback stopped.");
+      
+      const current_char = input_string[i % input_string.length];
 
-    if (stop == true) {
-      if (ambPlayer) ambPlayer.stop();
-      if (bassOsc) bassOsc.stop();
-      if (chordSynth) chordSynth.releaseAll();
-      break; // exits the cycle
-    }
+      if(!morse_map.has(current_char) && current_char != ' '){
+        // the character is not morse-coded
+        // changes key
+        current_key = key_roots[Math.floor(Math.random() * key_roots.length)];
+        if (bassOsc) bassOsc.stop();
+        if (chordSynth) chordSynth.releaseAll();
+        bassOsc = playBass(current_key);
+        chordSynth = playChord(current_key, emotion_scale_chords[emotion]);
 
-    if(!morse_map.has(current_char) && current_char != ' '){
-      // the character is not morse-coded
-      // changes key
-      current_key = key_roots[Math.floor(Math.random() * key_roots.length)];
-      if (bassOsc) bassOsc.stop();
-      if (chordSynth) chordSynth.releaseAll();
-      bassOsc = playBass(current_key);
-      chordSynth = playChord(current_key, emotion_scale_chords[emotion]);
+        //playDaHeckAreYouWriting();
 
-      //playDaHeckAreYouWriting();
-
-      continue;
-    }
-
-    if (current_char === " ") {
-      // space character: waits for a longer time interval (representing the end of a word)
-      await delay(word_silence_duration/velocity);
-      continue; // goes to next input character
-    }
-
-    const morseCode = morse_map.get(current_char);
-    if (morseCode) {
-      // reproduces every Morse symbol for the current character
-      for (let j = 0; j < morseCode.length; j++) {
-        if (morseCode[j] === ".") {
-          await playDot(current_key, current_scale, velocity, current_effects);
-          //current_note_index = shiftPivot(current_scale.length, current_note_index, current_note_shift);
-          console.log(current_scale[current_note_index]);
-        } else if (morseCode[j] === "-") {
-          await playLine(current_key, current_scale, velocity, current_effects);
-          //current_note_index = shiftPivot(current_scale.length, current_note_index, current_note_shift);
-          console.log(current_scale[current_note_index]);
-        }
-        // waits for a little interval between the morse code symbols (ex. "." o "-")
-        await delay(humanizeDuration(dot_duration/velocity, humanizer_intensity));
+        continue;
       }
-      // waits for a "medium" time interval between in-word intervals
-      await delay(humanizeDuration(line_duration/velocity, humanizer_intensity));
+
+      if (current_char === " ") {
+        // space character: waits for a longer time interval (representing the end of a word)
+        await delay(humanizeDuration(word_silence_duration/velocity, humanizer_intensity), signal);
+        continue; // goes to next input character
+      }
+
+      const morseCode = morse_map.get(current_char);
+      if (morseCode) {
+        // reproduces every Morse symbol for the current character
+        for (let j = 0; j < morseCode.length; j++) {
+          // stop check
+          if (signal.aborted) throw new Error("playback stopped");
+
+          if (morseCode[j] === ".") {
+            await playDot(current_key, current_scale, velocity, current_effects, signal);
+            //current_note_index = shiftPivot(current_scale.length, current_note_index, current_note_shift);
+            console.log(current_scale[current_note_index]);
+          } else if (morseCode[j] === "-") {
+            await playLine(current_key, current_scale, velocity, current_effects, signal);
+            //current_note_index = shiftPivot(current_scale.length, current_note_index, current_note_shift);
+            console.log(current_scale[current_note_index]);
+          }
+          // waits for a little interval between the morse code symbols (ex. "." o "-")
+          await delay(humanizeDuration(dot_duration/velocity, humanizer_intensity), signal);
+        }
+        // waits for a "medium" time interval between in-word intervals
+        await delay(humanizeDuration(line_duration/velocity, humanizer_intensity), signal);
+      }
     }
+  }catch(error){
+    console.error(error);
+  }finally{
+    // stops every remaining sound playing
+    if (ambPlayer) ambPlayer.stop();
+    if (bassOsc) bassOsc.stop();
+    if (chordSynth) chordSynth.releaseAll();
+
+    // clears the memory currently in use
+    ambPlayer.dispose();
+    bassOsc.dispose();
+    chordSynth.dispose();
+    oscSynth.dispose();
   }
-
-  if(!loop){
-    stop = true;
-  }
-
-  if (ambPlayer) ambPlayer.stop();
-  if (bassOsc) bassOsc.stop();
-  if (chordSynth) chordSynth.releaseAll();
-
 }
 
 //CONTROLLER
 
+// generalized debounce function
+function debounce(func, delay) {
+  let timeoutId;
+  return (...args) => {
+    if (timeoutId) clearTimeout(timeoutId); // clear the previous timer
+    timeoutId = setTimeout(() => func(...args), delay); // set a new timer
+  };
+}
+
+// function that extracts a new random note form the specified window boundaries of the given scale
 function getRandomNoteInWindow(scale, pivot_index) {
   // computes the limits of the window
   const half_window = Math.floor(new_note_window / 2);
@@ -339,14 +433,14 @@ morsebutton.onclick = async function () {
     await delay(300);
     morsify(textfield.value, "non-sense", 2);
   }*/
-  
-  morsify(textfield.value, "tension", 0.8, "rain");
+
   morsebutton.hidden = true;
   stopbutton.hidden = false;
+  await morsify(textfield.value, "wonder", 0.1, "rain");
 }
 
 stopbutton.onclick = function () {
-  stop = true;
+  stopPlayback();
   morsebutton.hidden = false;
   stopbutton.hidden = true;
 }
