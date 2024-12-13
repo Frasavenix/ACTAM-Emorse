@@ -267,12 +267,21 @@ function playChord(key, chordSemitones){
 
 // play a specified ambience sample sound
 function playAmbience(ambience){
-  let amb =  new Tone.Player({url: "../resources/sounds/" + ambience + ".mp3", fadeIn: 2, fadeOut: 2}).toDestination();
-  amb.volume.value = -10;
-  if(ambience == "rain"){
-    amb.volume.value = -18;
-  }
+  let amb =  new Tone.Player({url: "../resources/sounds/" + ambience + ".mp3", fadeIn: 2, fadeOut: 2});
+  const analyser = new Tone.DCMeter({ channels: 1 }); // a metering node
+  amb.connect(analyser).toDestination();
+  amb.volume.value = -12; 
+
+  const interval = setInterval(() => {
+    const level = analyser.getValue(); // get the current level
+    const adjustment = -12 - level;
+    amb.volume.value += adjustment * 0.1; // adjust dynamically
+
+    if (amb.state === "stopped") clearInterval(interval); // stop if player stops
+  }, 100); // adjust every 100ms
+
   amb.loop = true;
+
   // play as soon as the buffer is loaded
   amb.autostart = true;
   return amb;
@@ -436,7 +445,7 @@ morsebutton.onclick = async function () {
 
   morsebutton.hidden = true;
   stopbutton.hidden = false;
-  await morsify(textfield.value, "wonder", 0.1, "rain");
+  await morsify(textfield.value, "wonder", 0.8, "rain");
 }
 
 stopbutton.onclick = function () {
