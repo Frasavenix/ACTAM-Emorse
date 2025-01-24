@@ -5,7 +5,7 @@ const morse_map = new Map();
 const aud_context = new AudioContext();
 const dot_duration = 50;
 const line_duration = dot_duration * 3;
-const word_silence_duration = dot_duration * 7;
+const word_silence_duration = dot_duration * 6;
 const new_note_window = 5;
 stopbutton.hidden = true;
 stop = true;
@@ -106,7 +106,7 @@ const emotion_scale_chords = {
   "wonder": [0, 4, 6, 7, 11], // lydian
   "joy": [0, 4, 7, 11], // ionian
   "tenderness": [0, 5, 7, 10], // mixolydian
-  "mystery": [], // mixolydian flat 6
+  "mystery": [0, 4, 7, 8, 10], // mixolydian flat 6
   "nostalgia/longing": [0, 3, 7, 10], // dorian
   "sadness": [0, 3, 7], // aeolian
   "unease": [0, 1, 5, 7, 10], // phrygian
@@ -151,7 +151,7 @@ function delay(ms, signal) {
 // generic sound playing function
 function playTimedSound(duration, frequency, effects, signal) {
   return new Promise((resolve, reject) => {
-     if(!oscSynth || oscSynth.disposed){
+    if(!oscSynth || oscSynth.disposed){
       oscSynth = new Tone.Synth({
         oscillator: {
           type: "sine", // Forma d'onda sinusoidale
@@ -258,6 +258,26 @@ function playChord(key, chordSemitones){
   const chord = chordSemitones.map(semitone => 
     Tone.Frequency(key/2 * Math.pow(2, semitone/12)).toNote()
   );
+
+  /*
+  lowpass = new Tone.Filter({
+    frequency: 8000,  // Frequenza di taglio
+    type: "lowpass",  // Tipo di filtro
+    rolloff: -12,     // Pendenza in dB per ottava
+  });
+  
+  polySynth.connect(lowpass);
+  polySynth = lowpass;
+
+  compressor = new Tone.Compressor({
+    threshold: -9,  // Livello a cui inizia la compressione
+    ratio: 3,       // Rapporto di compressione
+    attack: 0.01,   // Tempo per iniziare la compressione
+    release: 0.1,   // Tempo per rilasciare la compressione
+  });
+  
+  polySynth.connect(compressor);
+  polySynth = compressor; */
 
   polySynth.volume.value = -15;
   polySynth.triggerAttack(chord);
@@ -388,14 +408,20 @@ async function morsify(input_string, emotion, velocity, ambience) {
     console.error(error);
   }finally{
     // stops every remaining sound playing
-    if (ambPlayer) ambPlayer.stop();
-    if (bassOsc) bassOsc.stop();
-    if (chordSynth) chordSynth.releaseAll();
+    if (ambPlayer){
+      ambPlayer.onstop = () => ambPlayer.dispose(); //clears the memory
+      ambPlayer.stop();
+    }
+    if (bassOsc){
+      bassOsc.onstop = () => bassOsc.dispose(); //clears the memory
+      bassOsc.stop();
+    }
+    if (chordSynth) {
+      chordSynth.onstop = () => chordSynth.dispose(); //clears the memory
+      chordSynth.releaseAll();
+    }
 
     // clears the memory currently in use
-    ambPlayer.dispose();
-    bassOsc.dispose();
-    chordSynth.dispose();
     oscSynth.dispose();
   }
 }
@@ -445,7 +471,7 @@ morsebutton.onclick = async function () {
 
   morsebutton.hidden = true;
   stopbutton.hidden = false;
-  await morsify(textfield.value, "wonder", 0.8, "rain");
+  await morsify(textfield.value, "mystery", 0.02, "none");
 }
 
 stopbutton.onclick = function () {
