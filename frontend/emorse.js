@@ -20,6 +20,9 @@ let current_effects = null;
 let oscSynth = null;
 let lowpass = null;
 let compressor = null;
+let emotions;
+let arousal;
+let ambience;
 
 // array containing all the morse codes for every alphabet letter
 const morse_code = [
@@ -121,15 +124,40 @@ const emotion_scale_chords = {
 const key_roots = [311.12, 329.63, 349.23, 369.99, 392, 415.30, 440, 466.16, 493.88, 523.25, 554.36, 587.32]; 
 
 async function detectEmotion(prompt) {
-  return fetch("http://localhost:3000", {
+  const response = await fetch("http://localhost:3000", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      message: prompt
+      prompt
     })
   });
+
+  if (!response.ok) {
+    throw new Error(`Error: ${response.status} ${response.statusText}`);
+  }
+
+  const jsonResponse = await response.json();
+  console.log(jsonResponse);
+
+  // Extract and parse the assistant's message
+  const content = jsonResponse.choices[0].message.content;
+  const extractedData = JSON.parse(content);
+
+  // Access specific values
+  emotions = extractedData.emotions;
+  arousal = extractedData.arousal;
+  ambience = extractedData.ambience;
+
+  // Log data
+  console.log("Emotions:");
+  emotions.forEach((emotion) => {
+    console.log(`- ${emotion.emotion}: ${emotion.accuracy}`);
+  });
+
+  console.log(`Arousal: ${arousal}`);
+  console.log(`Ambience: ${ambience}`);
 }
 
 //VIEW
@@ -458,20 +486,19 @@ function humanizeDuration(duration, humanizer_intensity){
 morsebutton.onclick = async function () {
   stop = false;
 
-  /*detectEmotion(textfield.value).then((emotions) => {
-    console.log("detected emotions:", emotions);
-  });*/
+  await detectEmotion(textfield.value);
 
-  //extract emotion
-  /*if(emotion == "non-sense"){
+  emotion = emotions[0].emotion;
+
+  if(emotion == "non-sense"){
     morsify(textfield.value, "non-sense", 2);
     await delay(300);
     morsify(textfield.value, "non-sense", 2);
-  }*/
+  }
 
   morsebutton.hidden = true;
   stopbutton.hidden = false;
-  await morsify(textfield.value, "mystery", 0.02, "none");
+  await morsify(textfield.value, emotion, arousal, ambience);
 }
 
 stopbutton.onclick = function () {

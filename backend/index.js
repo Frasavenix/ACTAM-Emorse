@@ -1,8 +1,13 @@
 import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
+import dotenv from "dotenv";
+//import { zodResponseFormat } from "openai/helpers/zod";
+//import { z } from "zod";
+//import { fromSchema } from "json-schema-to-zod";
 
-const apiKey = '';
+dotenv.config({ path: './backend/.env' });
+const apiKey = process.env.OPENAI_API_KEY;
 const app = express();
 const port = 3000;
 
@@ -17,15 +22,16 @@ app.post("/", async (req, res) => {
     }
 
     try {
-        const response = await fetch('https://api.openai.com/v1/completions', {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                messages: [{ role: "user", content: prompt },
+                model: 'gpt-4o-mini-2024-07-18',
+                messages: [
+                { role: "user", content: prompt },
                 {
                     role: "system", content: "You are an emotionally-intelligent and empathetic agent. "
                         + "You will be given a piece of text, and your task is to identify all the emotions expressed by the writer of the text. "
@@ -42,8 +48,80 @@ app.post("/", async (req, res) => {
                         + "\n{ 'emotions': [ {'emotion': 'sadness', 'accuracy': 0.8}, {'emotion': 'anxiety', 'accuracy': 0.15}, {'emotion': 'anger', 'accuracy': 0.05} ], 'arousal': 0.67, 'ambience': 'sea'}"
                 }
                 ],
+/*                response_format: {
+                    "type": "json_schema",
+                    "json_schema": {
+                      "name": "emotion_analysis",
+                      "strict": true,
+                      "schema": {
+                        "type": "object",
+                        "properties": {
+                          "emotions": {
+                            "type": "array",
+                            "description": "List of identified emotions with associated accuracy values.",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "emotion": {
+                                  "type": "string",
+                                  "enum": [
+                                    "joy",
+                                    "sadness",
+                                    "wonder",
+                                    "transcendence",
+                                    "nostalgia/longing",
+                                    "tenderness",
+                                    "anger",
+                                    "tension",
+                                    "disgust",
+                                    "hilarity",
+                                    "mystery",
+                                    "non-sense",
+                                    "neutral"
+                                  ]
+                                },
+                                "accuracy": {
+                                  "type": "number",
+                                  "description": "Confidence level of the identified emotion."
+                                }
+                              },
+                              "required": [
+                                "emotion",
+                                "accuracy"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "arousal": {
+                            "type": "number",
+                            "description": "Arousal level of the text, ranging from 0 to 1."
+                          },
+                          "ambience": {
+                            "type": "string",
+                            "enum": [
+                              "rain",
+                              "wind",
+                              "sea",
+                              "beach",
+                              "city",
+                              "mountain",
+                              "forest",
+                              "none"
+                            ],
+                            "description": "Describes the ambience of the text."
+                          }
+                        },
+                        "required": [
+                          "emotions",
+                          "arousal",
+                          "ambience"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },                */
                 max_tokens: 100,
-                temperature: 0.7,
+                temperature: 0.7
             }),
         });
 
@@ -53,7 +131,7 @@ app.post("/", async (req, res) => {
 
         const data = await response.json();
         console.log(data.choices[0].text);
-        res = data.choices[0].text;
+        res.json({ result: data.choices[0].text });
     } catch (error) {
         console.error("Error during the API request:", error);
         res.status(500).json({ error: "Internal server error." });
