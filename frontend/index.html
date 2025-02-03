@@ -9,11 +9,16 @@
 </head>
 
 <body>
-  <div class="container">
+  <div id="feedbackarea">
+    <p id="typing-text"></p>      
+    <div class="button-container">
+    <button id="stopbutton" class="button">Stop</button>
+    </div>
+  </div>
+  <div id="interactionarea" class="container">
     <textarea id="textfield" class="textarea" placeholder="Write something intense..." wrap="soft"></textarea>
     <div class="button-container">
       <button id="morsebutton" class="button">Emorse!</button>
-      <button id="stopbutton" class="button">Stop</button>
     </div>
   </div>
   <script type="module" src="emorse.js"></script>

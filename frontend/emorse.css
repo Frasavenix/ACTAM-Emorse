@@ -5,6 +5,7 @@ body {
     justify-content: center;
     align-items: center;
     background-color: black;
+    overflow: hidden;
 }
 
 .container {
@@ -14,6 +15,51 @@ body {
     height: 100vh;
     width: 100vw;
     flex-direction: column
+}
+
+.container.hidden {
+    transform: translateY(100%);
+    opacity: 0;
+    pointer-events: none; /* Evita interazioni dopo l'animazione */
+    transition: transform 1s ease, opacity 1s ease;
+}
+
+.container.shown {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto; /* Evita interazioni dopo l'animazione */
+    transition: transform 1s ease, opacity 1s ease;
+}
+
+#feedbackarea{
+    opacity: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100vh;
+    text-align: center;
+    pointer-events: auto;
+    transition: opacity 1s ease-in-out;
+}
+
+#typing-text{
+    font-size: 60px;
+    font-family: "Lucida Console", monospace;
+    color: lightgrey;
+    text-align: center;
+    align-items: center;
+    height: 50%;
+}
+
+#typing-text::after {
+    content: "|";
+    animation: blink 0.8s infinite;
+}
+
+@keyframes blink {
+    50% { opacity: 0; }
 }
 
 .button-container {
@@ -89,10 +135,17 @@ body {
     /* Cambia il testo in bianco per contrasto */
 }
 
+button:disabled {
+    background-color: #ccc;  /* Change the background color */
+    color: #cbcbcb;        /* Change the text color */
+    cursor: not-allowed;     /* Change the cursor to indicate it's disabled */
+    opacity: 0.5;            /* Add some opacity for a "grayed out" effect */
+}
+
 #stopbutton:active {
     background-color: rgb(191, 24, 24);
     /* Cambia il colore quando il cursore è sopra il pulsante */
-    border-color: white;
+    border-color: rgb(191, 24, 24);
     color: white;
     /* Cambia anche il testo in nero per contrasto */
 }

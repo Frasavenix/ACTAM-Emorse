@@ -1,15 +1,28 @@
 const textfield = document.getElementById("textfield");
 const morsebutton = document.getElementById("morsebutton");
 const stopbutton = document.getElementById("stopbutton");
+const interactionarea = document.getElementById("interactionarea");
+const feedbackarea = document.getElementById("feedbackarea");
+const typingText = document.getElementById("typing-text");
+const container = document.querySelector(".container");
+
 const morse_map = new Map();
 const aud_context = new AudioContext();
-const dot_duration = 50;
+const dot_duration = 250;
 const line_duration = dot_duration * 3;
 const word_silence_duration = dot_duration * 6;
 const new_note_window = 5;
-stopbutton.hidden = true;
+
 stop = true;
 let loop = true;
+
+document.addEventListener("DOMContentLoaded", () => {
+  feedbackarea.style.display = "none";
+});
+
+container.addEventListener("transitionend", () => {
+    container.style.pointerEvents = "auto"; // enables interaction after animation
+});
 
 //MODEL
 let humanizer_intensity = 0.1
@@ -20,9 +33,6 @@ let current_effects = null;
 let oscSynth = null;
 let lowpass = null;
 let compressor = null;
-let emotions;
-let arousal;
-let ambience;
 
 // array containing all the morse codes for every alphabet letter
 const morse_code = [
@@ -77,14 +87,14 @@ const eModes = {
   "joy": [-12, -10, -8, -7, -5, -3, -1, 0, 2, 4, 5, 7, 9, 11, 12], // ionian
   "tenderness": [-12, -10, -8, -7, -5, -3, -2, 0, 2, 4, 5, 7, 9, 10, 12], // mixolydian
   "mystery": [-12, -10, -8, -7, -5, -4, -2, 0, 2, 4, 5, 7, 8, 10, 12], // mixolydian flat 6
-  "nostalgia/longing": [-12, -10, -9, -7, -5, -3, -2, 0, 2, 3, 5, 7, 9, 10, 12],  // dorian
+  "nostalgia": [-12, -10, -9, -7, -5, -3, -2, 0, 2, 3, 5, 7, 9, 10, 12],  // dorian
   "sadness": [-12, -10, -9, -7, -5, -4, -2, 0, 2, 3, 5, 7, 8, 10, 12], // aeolian
   "unease": [-12, -11, -9, -7, -5, -4, -2, 0, 1, 3, 5, 7, 8, 10, 12], // phrygian
   "tension": [-12, -11, -9, -7, -6, -4, -2, 0, 1, 3, 5, 6, 8, 10, 12], // locrian
   "non-sense": [-12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], //chromatic
-  "hilarity/goofiness": [], // goofy sounds
+  "hilarity": [], // goofy sounds
   "disgust": [], // disgustive sounds
-  "neutral": [] // normal morse
+  "neutral": [0] // normal morse
 }
 
 const emo_ffects = {
@@ -95,12 +105,12 @@ const emo_ffects = {
   "joy": [],
   "tenderness": [],
   "mystery": [],
-  "nostalgia/longing": [],
+  "nostalgia": [],
   "sadness": [],
   "unease": [],
   "tension": [],
   "non-sense": [],
-  "hilarity/goofiness": [],
+  "hilarity": [],
   "disgust": [],
   "neutral": []
 }
@@ -110,14 +120,21 @@ const emotion_scale_chords = {
   "joy": [0, 4, 7, 11], // ionian
   "tenderness": [0, 5, 7, 10], // mixolydian
   "mystery": [0, 4, 7, 8, 10], // mixolydian flat 6
-  "nostalgia/longing": [0, 3, 7, 10], // dorian
+  "nostalgia": [0, 3, 7, 10], // dorian
   "sadness": [0, 3, 7], // aeolian
   "unease": [0, 1, 5, 7, 10], // phrygian
   "tension": [0, 3, 6, 10], // locrian
   "non-sense": [0, 6], //chromatic
-  "hilarity/goofiness": [], // goofy sounds
+  "hilarity": [], // goofy sounds
   "disgust": [], // disgustive sounds
   "neutral": [] // normal morse
+}
+
+const emotion_sounds = {
+  "hilarity": {
+    "dots": ["car-horn", "clown-horn", "duck-toy-sound", "goofy-bonk"],
+    "lines": ["goofy-ahh-runnin", "goofy-slipping"] 
+  }
 }
 
 // the 4th octave's notes frequencies
@@ -141,14 +158,12 @@ async function detectEmotion(prompt) {
   const jsonResponse = await response.json();
   console.log(jsonResponse);
 
-  // Extract and parse the assistant's message
-  const content = jsonResponse.choices[0].message.content;
-  const extractedData = JSON.parse(content);
+  const extractedData = JSON.parse(jsonResponse)
 
   // Access specific values
-  emotions = extractedData.emotions;
-  arousal = extractedData.arousal;
-  ambience = extractedData.ambience;
+  const emotions = extractedData.emotions;
+  const arousal = extractedData.arousal;
+  const ambience = extractedData.ambience;
 
   // Log data
   console.log("Emotions:");
@@ -158,6 +173,8 @@ async function detectEmotion(prompt) {
 
   console.log(`Arousal: ${arousal}`);
   console.log(`Ambience: ${ambience}`);
+
+  return { emotions, arousal, ambience };
 }
 
 //VIEW
@@ -318,10 +335,10 @@ function playAmbience(ambience){
   let amb =  new Tone.Player({url: "../resources/sounds/" + ambience + ".mp3", fadeIn: 2, fadeOut: 2});
   const analyser = new Tone.DCMeter({ channels: 1 }); // a metering node
   amb.connect(analyser).toDestination();
-  amb.volume.value = -12; 
+  amb.volume.value = -10; 
 
   const interval = setInterval(() => {
-    const level = analyser.getValue(); // get the current level
+    const level = analyser.getValue(); // gets the current level
     const adjustment = -12 - level;
     amb.volume.value += adjustment * 0.1; // adjust dynamically
 
@@ -335,10 +352,30 @@ function playAmbience(ambience){
   return amb;
 }
 
-// function used for handling non-morse coded characters
-function playDaHeckAreYouWriting() {
-  //TODO: qualche sburrata incredibile per i caratteri che non sono inclusi codice morse.
-  changeKey();
+// plays an "emotion" sound
+function playEmoSound(sign, emotion, signal){
+  return new Promise((resolve, reject) => {
+    let sign_path = sign == "." ? "dots" : "lines"
+    let sound_pool = emotion_sounds[emotion][sign_path];
+
+    let sound_player =  new Tone.Player({url: "../resources/sounds/" + emotion + "/" + sign_path + "/" + sound_pool[Math.floor(Math.random() * sound_pool.length)] + ".mp3", fadeIn: 2, fadeOut: 2});
+    sound_player.volume.value = -9;
+    sound_player.toDestination();
+
+    signal.addEventListener("abort", () => {
+      sound_player.stop();
+      reject(new Error("playback stopped."));
+    });    
+    
+    sound_player.buffer.onload = () => {
+      sound_player.start();
+    };
+
+    sound_player.buffer.onended = () => {
+      resolve();
+      sound_player.dispose(); // Clears memory after playback
+    };
+  });
 }
 
 let abort_controller = null;
@@ -370,13 +407,14 @@ async function morsify(input_string, emotion, velocity, ambience) {
   let ambPlayer = null;
   let bassOsc = null;
   let chordSynth = null;
+  let isMusical = emotion_scale_chords[emotion].length > 0;
   input_string = input_string.toLowerCase(); // converts the input to lower case
 
   if(ambience != "none"){
     ambPlayer = playAmbience(ambience);
   }
 
-  if(input_string.length != 0){
+  if(input_string.length != 0 && isMusical){
     bassOsc = playBass(current_key); 
     chordSynth = playChord(current_key, emotion_scale_chords[emotion]);
     //Consider applying a cutoff sort of filter in order to lower the gain and reduce the possibility of cracks :/
@@ -389,7 +427,7 @@ async function morsify(input_string, emotion, velocity, ambience) {
       
       const current_char = input_string[i % input_string.length];
 
-      if(!morse_map.has(current_char) && current_char != ' '){
+      if(!morse_map.has(current_char) && current_char != ' '  && isMusical){
         // the character is not morse-coded
         // changes key
         current_key = key_roots[Math.floor(Math.random() * key_roots.length)];
@@ -417,13 +455,32 @@ async function morsify(input_string, emotion, velocity, ambience) {
           if (signal.aborted) throw new Error("playback stopped");
 
           if (morseCode[j] === ".") {
-            await playDot(current_key, current_scale, velocity, current_effects, signal);
-            //current_note_index = shiftPivot(current_scale.length, current_note_index, current_note_shift);
-            console.log(current_scale[current_note_index]);
+            // dot playing
+            if (emotion == "normal"){
+              // normal morse playing
+              await playTimedSound(dot_duration, 580, current_effects, signal);
+            } else if (emotion == "hilarity"){
+              // plays randomly 
+              await playEmoSound(morseCode[j], emotion, signal);
+            } else if (emotion == "disgust"){
+              //await playEmoSound(morseCode[j], emotion);
+            }else{
+              await playDot(current_key, current_scale, velocity, current_effects, signal);
+              console.log(current_scale[current_note_index]);
+            }
+
           } else if (morseCode[j] === "-") {
-            await playLine(current_key, current_scale, velocity, current_effects, signal);
-            //current_note_index = shiftPivot(current_scale.length, current_note_index, current_note_shift);
-            console.log(current_scale[current_note_index]);
+            // line playing
+            if (emotion == "normal"){
+              await playTimedSound(line_duration, 580, current_effects, signal);
+            } else if (emotion == "hilarity"){
+              await playEmoSound(morseCode[j], emotion, signal);
+            } else if (emotion == "disgust"){
+              // todo
+            }else{
+              await playLine(current_key, current_scale, velocity, current_effects, signal);
+              console.log(current_scale[current_note_index]);
+            }
           }
           // waits for a little interval between the morse code symbols (ex. "." o "-")
           await delay(humanizeDuration(dot_duration/velocity, humanizer_intensity), signal);
@@ -483,26 +540,72 @@ function humanizeDuration(duration, humanizer_intensity){
   return variation + duration;
 }
 
+const speed = 1500; // Velocità in millisecondi
+let index = 0;
+
+function typeEffect(text) {
+  text = text.replace(/^\w/, c => c.toUpperCase());
+  if (index < text.length) {
+      typingText.innerHTML = text.substring(0, index + 1);
+      index++;
+      setTimeout(() => typeEffect(text), speed);
+  }else{
+    typingText.innerHTML = text.substring(0, index + 1) + ".";    
+  }
+}
+
+function startTyping(text) {
+  index = 0;
+  typingText.innerHTML = "";
+  typeEffect(text);
+}
+
 morsebutton.onclick = async function () {
   stop = false;
+  morsebutton.disabled = true;
+  Tone.start();
 
-  await detectEmotion(textfield.value);
+  // requesting the emotion analysis
+  const { emotions, arousal, ambience } = await detectEmotion(textfield.value);
 
-  emotion = emotions[0].emotion;
+  let emotion = emotions[0].emotion;
+  let container = document.querySelector(".container");
 
-  if(emotion == "non-sense"){
-    morsify(textfield.value, "non-sense", 2);
-    await delay(300);
-    morsify(textfield.value, "non-sense", 2);
-  }
+  /*if(emotion == "non-sense"){
+    //morsify(textfield.value, "non-sense", 2);
+    //await delay(300);
+    //morsify(textfield.value, "non-sense", 2);
+    //await delay(300);
+  }*/
 
   morsebutton.hidden = true;
-  stopbutton.hidden = false;
+  container.classList.remove("shown");
+  container.classList.add("hidden");
+  setTimeout(() => interactionarea.hidden = true, 1000);
+  setTimeout(() => {
+    startTyping(emotion);
+    feedbackarea.style.display = "flex";
+    setTimeout(() => {
+      feedbackarea.style.opacity = "1";
+    }, 10);
+  }, 750);
   await morsify(textfield.value, emotion, arousal, ambience);
 }
 
 stopbutton.onclick = function () {
   stopPlayback();
+
+  let container = document.querySelector(".container");
+
+  container.classList.remove("hidden");  
+  container.classList.add("shown");  
+
+  feedbackarea.style.opacity = "0";  
+  setTimeout(() => {
+      feedbackarea.style.display = "none";
+  }, 1000);   
+  
+  interactionarea.hidden = false;
+  morsebutton.disabled = false;
   morsebutton.hidden = false;
-  stopbutton.hidden = true;
 }
