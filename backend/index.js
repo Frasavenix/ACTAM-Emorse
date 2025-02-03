@@ -39,7 +39,7 @@ app.post("/", async (req, res) => {
                         + "and don’t use any other words: [joy, sadness, wonder, nostalgia, tenderness, unease, tension, mystery, non-sense]. "
                         + "Only select those ones for which you are reasonably confident that they are expressed in the text. "
                         + "If no emotion is clearly expressed, select ‘neutral’. You are asked to also identify the arousal level of the text, "
-                        + "with a value which goes from 0.01 (extremely calm) to 1 (extremely exited). Reply with only the list of emotions (plus the arousal) in form of a JSON array, "
+                        + "with a value which goes from 0 (extremely calm) to 4 (extremely excited). Reply with only the list of emotions (plus the arousal) in form of a JSON array, "
                         + "separated by comma and with an associated accuracy value (which goes from 0 to 1). The sum of all the accuracies (without considering the arousal level) must be 1."
                         + "\nYou are also a precise ambience observer. You have to identify if the text given to you has an ambience "
                         + "description which suits one of the following words: [rain, wind, sea, beach, city, mountain, forest]. "
@@ -68,13 +68,10 @@ app.post("/", async (req, res) => {
                                     "joy",
                                     "sadness",
                                     "wonder",
-                                    "transcendence",
                                     "nostalgia",
                                     "tenderness",
-                                    "anger",
                                     "tension",
-                                    "disgust",
-                                    "hilarity",
+                                    "unease",
                                     "mystery",
                                     "non-sense",
                                     "neutral"
@@ -94,7 +91,7 @@ app.post("/", async (req, res) => {
                           },
                           "arousal": {
                             "type": "number",
-                            "description": "Arousal level of the text, ranging from 0.01 to 1."
+                            "description": "Arousal level of the text, ranging from 0 to 4. Please, include pointed values."
                           },
                           "ambience": {
                             "type": "string",

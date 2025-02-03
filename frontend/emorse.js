@@ -8,7 +8,7 @@ const container = document.querySelector(".container");
 
 const morse_map = new Map();
 const aud_context = new AudioContext();
-const dot_duration = 250;
+const dot_duration = 350;
 const line_duration = dot_duration * 3;
 const word_silence_duration = dot_duration * 6;
 const new_note_window = 5;
@@ -84,7 +84,7 @@ Object.entries(morse_special_chars).forEach(([key, value]) => { morse_map.set(ke
 // map relating scales (expressed as semitones distances from the root) and emotions.
 const eModes = {
   "wonder": [-12, -10, -8, -6, -5, -3, -1, 0, 2, 4, 6, 7, 9, 11, 12], // lydian
-  "joy": [-12, -10, -8, -7, -5, -3, -1, 0, 2, 4, 5, 7, 9, 11, 12], // ionian
+  "joy": [-12, -10, -8, -5, -3, -1, 0, 2, 4, 7, 9, 11, 12], // ionian
   "tenderness": [-12, -10, -8, -7, -5, -3, -2, 0, 2, 4, 5, 7, 9, 10, 12], // mixolydian
   "mystery": [-12, -10, -8, -7, -5, -4, -2, 0, 2, 4, 5, 7, 8, 10, 12], // mixolydian flat 6
   "nostalgia": [-12, -10, -9, -7, -5, -3, -2, 0, 2, 3, 5, 7, 9, 10, 12],  // dorian
@@ -117,7 +117,7 @@ const emo_ffects = {
 
 const emotion_scale_chords = {
   "wonder": [0, 4, 6, 7, 11], // lydian
-  "joy": [0, 4, 7, 11], // ionian
+  "joy": [0, 4, 7], // ionian
   "tenderness": [0, 5, 7, 10], // mixolydian
   "mystery": [0, 4, 7, 8, 10], // mixolydian flat 6
   "nostalgia": [0, 3, 7, 10], // dorian
@@ -130,12 +130,29 @@ const emotion_scale_chords = {
   "neutral": [] // normal morse
 }
 
+const emotion_waveforms = {
+  "wonder": ["sine", "sine"], // lydian
+  "joy": ["sawtooth", "square"], // ionian
+  "tenderness": ["sine", "sawtooth"], // mixolydian
+  "mystery": ["sawtooth", "triangle"], // mixolydian flat 6
+  "nostalgia": ["sine", "sine"], // dorian
+  "sadness": ["triangle", "triangle"], // aeolian
+  "unease": ["triangle", "triangle"], // phrygian
+  "tension": ["triangle", "square"], // locrian
+  "non-sense": ["triangle", "triangle"], //chromatic
+  "hilarity": [], // goofy sounds
+  "disgust": [], // disgustive sounds
+  "neutral": ["sine", "sine"] // normal morse
+}
+
 const emotion_sounds = {
   "hilarity": {
     "dots": ["car-horn", "clown-horn", "duck-toy-sound", "goofy-bonk"],
     "lines": ["goofy-ahh-runnin", "goofy-slipping"] 
   }
 }
+
+let current_waveform;
 
 // the 4th octave's notes frequencies
 const key_roots = [311.12, 329.63, 349.23, 369.99, 392, 415.30, 440, 466.16, 493.88, 523.25, 554.36, 587.32]; 
@@ -199,12 +216,12 @@ function playTimedSound(duration, frequency, effects, signal) {
     if(!oscSynth || oscSynth.disposed){
       oscSynth = new Tone.Synth({
         oscillator: {
-          type: "sine", // Forma d'onda sinusoidale
+          type: current_waveform[0], // Forma d'onda sinusoidale
         },
         envelope: {
-          attack: duration / 1000 / 100,              // fade-in
-          sustain: 1 - 2 * (duration / 1000 / 100),   // full note time
-          release: duration / 1000 / 100,             // fade-out
+          attack: duration / 100 / 50,              // fade-in
+          sustain: 1 - 2 * (duration / 100 / 50),   // full note time
+          release: duration / 100 / 50,             // fade-out
         },
       });
 
@@ -236,18 +253,22 @@ function playTimedSound(duration, frequency, effects, signal) {
       
       // connects the last effect to the destination
       last_effect.toDestination();
-      oscSynth.volume.value = -10;
+      if(current_waveform[0] == "square" || current_waveform[0] == "sawtooth"){
+        oscSynth.volume.value = -18;
+      }else{
+        oscSynth.volume.value = -10;
+      }
 
     }else{
-      oscSynth.attack = duration / 1000 / 50;
-      oscSynth.release = duration / 1000 / 50;
-      oscSynth.sustain = 1 - 2 * (duration / 1000 / 100);
+      oscSynth.attack = duration / 100 / 50;
+      oscSynth.release = duration / 100 / 50;
+      oscSynth.sustain = 1 - 2 * (duration / 100 / 50);
     }
 
     // connects the last effect to the destination
     //previousEffect.toDestination()
 
-    oscSynth.triggerAttackRelease(frequency, duration / 1000);
+    oscSynth.triggerAttackRelease(Tone.Frequency(frequency).toNote(), duration / 1000);
 
     const timeout = setTimeout(() => {
       if (!signal.aborted) resolve();
@@ -291,7 +312,7 @@ function playChord(key, chordSemitones){
   // synth parameters
   // TODO: maybe getting those dynamically?
   polySynth.set({
-    oscillator: { type: "sine" },
+    oscillator: { type: current_waveform[1] },
     envelope: {
       attack: 0.5,
       decay: 0.2,
@@ -324,7 +345,11 @@ function playChord(key, chordSemitones){
   polySynth.connect(compressor);
   polySynth = compressor; */
 
-  polySynth.volume.value = -15;
+  if(current_waveform[1] == "square" || current_waveform[1] == "sawtooth" || current_waveform[1] == "triangle"){
+    polySynth.volume.value = -24;
+  }else{
+    polySynth.volume.value = -15;
+  }
   polySynth.triggerAttack(chord);
 
   return polySynth;
@@ -335,11 +360,29 @@ function playAmbience(ambience){
   let amb =  new Tone.Player({url: "../resources/sounds/" + ambience + ".mp3", fadeIn: 2, fadeOut: 2});
   const analyser = new Tone.DCMeter({ channels: 1 }); // a metering node
   amb.connect(analyser).toDestination();
-  amb.volume.value = -10; 
+  let adjustment_thresh;
+
+  if(current_waveform[1] == "square" || current_waveform[1] == "sawtooth" || current_waveform[1] == "triangle"){
+    if(ambience == "rain"){
+      amb.volume.value = -18;
+      adjustment_thresh = -18;
+    }else{
+      amb.volume.value = 0;
+      adjustment_thresh = 0;
+    }
+  }{
+    if(ambience == "rain"){
+      amb.volume.value = -12;
+      adjustment_thresh = -12;
+    }else{
+      amb.volume.value = -9;
+      adjustment_thresh = -9;
+    }
+  }
 
   const interval = setInterval(() => {
     const level = analyser.getValue(); // gets the current level
-    const adjustment = -12 - level;
+    const adjustment = adjustment_thresh - level;
     amb.volume.value += adjustment * 0.1; // adjust dynamically
 
     if (amb.state === "stopped") clearInterval(interval); // stop if player stops
@@ -540,7 +583,7 @@ function humanizeDuration(duration, humanizer_intensity){
   return variation + duration;
 }
 
-const speed = 1500; // Velocità in millisecondi
+const speed = 750; // Velocità in millisecondi
 let index = 0;
 
 function typeEffect(text) {
@@ -571,13 +614,6 @@ morsebutton.onclick = async function () {
   let emotion = emotions[0].emotion;
   let container = document.querySelector(".container");
 
-  /*if(emotion == "non-sense"){
-    //morsify(textfield.value, "non-sense", 2);
-    //await delay(300);
-    //morsify(textfield.value, "non-sense", 2);
-    //await delay(300);
-  }*/
-
   morsebutton.hidden = true;
   container.classList.remove("shown");
   container.classList.add("hidden");
@@ -589,7 +625,14 @@ morsebutton.onclick = async function () {
       feedbackarea.style.opacity = "1";
     }, 10);
   }, 750);
-  await morsify(textfield.value, emotion, arousal, ambience);
+
+  current_waveform = emotion_waveforms[emotion];
+
+  if(emotion == "non-sense"){
+    await morsify(textfield.value, emotion, 7, ambience);
+  }else{
+    await morsify(textfield.value, emotion, arousal - 0.6, ambience);
+  }
 }
 
 stopbutton.onclick = function () {
